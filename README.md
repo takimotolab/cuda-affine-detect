@@ -9,13 +9,12 @@ CUDAコードをLLVM MLIR上で解析し、affineを持つカーネルのリス�
 ```sh
 # 本リポジトリをクローン
 git clone --recursive https://github.com/takimotolab/cuda-affine-detect.git
+cd cuda-affine-detect
 
 # TODO: CUDA対応
 # LLVMをビルド
 mkdir Polygeist/llvm-project/build
 cd Polygeist/llvm-project/build
-mkdir llvm-project/build
-cd llvm-project/build
 cmake -G Ninja ../llvm -DLLVM_ENABLE_PROJECTS="mlir;clang" -DLLVM_TARGETS_TO_BUILD="host" -DLLVM_ENABLE_ASSERTIONS=ON -DCMAKE_BUILD_TYPE=DEBUG
 ninja
 

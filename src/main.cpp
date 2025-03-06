@@ -1,18 +1,8 @@
-#include <mlir/Conversion/FuncToLLVM/ConvertFuncToLLVM.h>
-#include <mlir/Conversion/LLVMCommon/TypeConverter.h>
-#include <mlir/Dialect/LLVMIR/LLVMDialect.h>
-#include <mlir/Dialect/Func/IR/FuncOps.h>
-#include <mlir/IR/MLIRContext.h>
-#include <mlir/IR/BuiltinOps.h>
-#include <mlir/Parser/Parser.h>
-#include <mlir/Target/LLVMIR/Dialect/Builtin/BuiltinToLLVMIRTranslation.h>
-#include <mlir/Target/LLVMIR/Dialect/LLVMIR/LLVMToLLVMIRTranslation.h>
-#include <mlir/Target/LLVMIR/Export.h>
-
-#include <llvm/IR/LLVMContext.h>
-#include <llvm/Support/CommandLine.h>
 #include <llvm/Support/MemoryBuffer.h>
 #include <llvm/Support/SourceMgr.h>
+#include <mlir/InitAllDialects.h>
+#include <mlir/IR/MLIRContext.h>
+#include <mlir/Parser/Parser.h>
 
 #include <iostream>
 #include <string>
@@ -25,8 +15,6 @@ int main(int argc, char **argv) {
   }
   std::string inputFilename(argv[1]);
 
-  mlir::registerMLIRContextCLOptions();
-
   // 入力ファイルを開く
   auto fileOrErr = llvm::MemoryBuffer::getFileOrSTDIN(inputFilename);
   if (auto ec = fileOrErr.getError()) {
@@ -35,10 +23,33 @@ int main(int argc, char **argv) {
   }
 
   // MLIRContextの初期化
-  // - FuncDialect
   mlir::MLIRContext context;
   mlir::DialectRegistry registry;
-  registry.insert<mlir::func::FuncDialect>();
+  registry.insert<
+    mlir::affine::AffineDialect,
+    mlir::arith::ArithDialect,
+    mlir::async::AsyncDialect,
+    mlir::cf::ControlFlowDialect,
+    mlir::DLTIDialect,
+    mlir::func::FuncDialect,
+    mlir::gpu::GPUDialect,
+    mlir::index::IndexDialect,
+    mlir::linalg::LinalgDialect,
+    mlir::LLVM::LLVMDialect,
+    mlir::memref::MemRefDialect,
+    mlir::NVVM::NVVMDialect,
+    mlir::omp::OpenMPDialect,
+    mlir::pdl::PDLDialect,
+    mlir::quant::QuantizationDialect,
+    mlir::scf::SCFDialect,
+    mlir::shape::ShapeDialect,
+    mlir::sparse_tensor::SparseTensorDialect,
+    mlir::spirv::SPIRVDialect,
+    mlir::tensor::TensorDialect,
+    mlir::tosa::TosaDialect,
+    mlir::transform::TransformDialect,
+    mlir::vector::VectorDialect
+  >();
   context.appendDialectRegistry(registry);
 
   // パース
@@ -50,33 +61,26 @@ int main(int argc, char **argv) {
     return 1;
   }
 
-  // FuncDialectからLLVMDialectへLowering
-  mlir::ConversionTarget target(context);
-  target.addLegalDialect<mlir::LLVM::LLVMDialect>();
-  target.addIllegalDialect<mlir::func::FuncDialect>();
-  mlir::LLVMTypeConverter typeConverter(&context);
-  mlir::RewritePatternSet patterns(&context);
-  mlir::populateFuncToLLVMConversionPatterns(typeConverter, patterns);
-  if (mlir::failed(mlir::applyPartialConversion(*module, target, std::move(patterns)))) {
-    llvm::errs() << "Failed to apply partial conversion.\n";
-    return 1;
-  }
+  // 各関数について走査
+  module->walk([](mlir::func::FuncOp funcOp) {
+    bool hasAffine = false;
 
-  // LLVM IRへ変換
-  mlir::registerBuiltinDialectTranslation(*module->getContext());
-  mlir::registerLLVMDialectTranslation(*module->getContext());
-  llvm::LLVMContext llvmContext;
-  auto llvmModule = mlir::translateModuleToLLVMIR(module.get(), llvmContext);
-  if (!llvmModule) {
-    llvm::errs() << "Failed to translate to LLVM IR.\n";
-    return 1;
-  }
+    funcOp.walk([&hasAffine](mlir::Operation *op) {
+      if (llvm::isa<
+        mlir::affine::AffineForOp,
+        mlir::affine::AffineIfOp,
+        mlir::affine::AffineLoadOp, 
+        mlir::affine::AffineStoreOp,
+        mlir::affine::AffineApplyOp
+      >(op)) {
+        hasAffine = true;
+      }
+    });
 
-  // LLVM IRを出力
-  std::string irBuffer;
-  llvm::raw_string_ostream irStream(irBuffer);
-  llvmModule->print(irStream, nullptr);
-  llvm::outs() << irBuffer;
+    if (hasAffine) {
+      std::cout << funcOp.getName().str() << std::endl;
+    }
+  });
 
   return 0;
 }

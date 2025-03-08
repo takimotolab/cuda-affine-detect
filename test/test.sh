@@ -1,4 +1,9 @@
 #!/bin/bash -e
 
-../Polygeist/build/bin/cgeist gemm.c -S -raise-scf-to-affine -o gemm.mlir
-diff <(../build/caf gemm.mlir) <(cat gemm.txt)
+if [ "$#" -ne 2 ]; then
+    echo "Usage: $0 <cuda-gpu-arch> <cuda-include-path>"
+    exit 1
+fi
+
+./cgeist.sh test1 $1 $2
+diff <(../build/caf test1.mlir) <(cat test1.txt)

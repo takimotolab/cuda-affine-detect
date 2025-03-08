@@ -6,6 +6,7 @@ if [ "$#" -ne 3 ]; then
 fi
 
 ../Polygeist/build/bin/cgeist $1.cu \
+    --std=c++17 \
     --cuda-gpu-arch=$2 \
     -nocudalib \
     -nocudainc \

@@ -4,6 +4,8 @@
 #include <mlir/IR/MLIRContext.h>
 #include <mlir/Parser/Parser.h>
 
+#include <polygeist/Dialect.h>
+
 #include <iostream>
 #include <string>
 
@@ -36,9 +38,11 @@ int main(int argc, char **argv) {
     mlir::index::IndexDialect,
     mlir::linalg::LinalgDialect,
     mlir::LLVM::LLVMDialect,
+    mlir::math::MathDialect,
     mlir::memref::MemRefDialect,
     mlir::NVVM::NVVMDialect,
     mlir::omp::OpenMPDialect,
+    mlir::polygeist::PolygeistDialect,
     mlir::pdl::PDLDialect,
     mlir::quant::QuantizationDialect,
     mlir::scf::SCFDialect,
@@ -63,6 +67,11 @@ int main(int argc, char **argv) {
 
   // 各関数について走査
   module->walk([](mlir::func::FuncOp funcOp) {
+    const auto name = funcOp.getName().str();
+    if (!name.starts_with("__device_stub__")) {
+      return;
+    }
+
     bool hasAffine = false;
 
     funcOp.walk([&hasAffine](mlir::Operation *op) {
@@ -78,7 +87,7 @@ int main(int argc, char **argv) {
     });
 
     if (hasAffine) {
-      std::cout << funcOp.getName().str() << std::endl;
+      std::cout << name << std::endl;
     }
   });
 

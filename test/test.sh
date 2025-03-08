@@ -7,3 +7,6 @@ fi
 
 ./cgeist.sh test1 $1 $2
 diff <(../build/caf test1.mlir) <(cat test1.txt)
+
+./cgeist.sh test2 $1 $2
+diff <(../build/caf test2.mlir) <(cat test2.txt)

@@ -67,26 +67,25 @@ int main(int argc, char **argv) {
 
   // 各関数について走査
   module->walk([](mlir::func::FuncOp funcOp) {
-    const auto name = funcOp.getName().str();
-    if (!name.starts_with("__device_stub__")) {
+    constexpr std::string_view PREFIX = "__device_stub__";
+
+    // カーネルでなければスキップ
+    auto name = funcOp.getName().str();
+    if (!name.starts_with(PREFIX)) {
       return;
     }
 
+    // affine.forがあるか確認
     bool hasAffine = false;
-
     funcOp.walk([&hasAffine](mlir::Operation *op) {
-      if (llvm::isa<
-        mlir::affine::AffineForOp,
-        mlir::affine::AffineIfOp,
-        mlir::affine::AffineLoadOp, 
-        mlir::affine::AffineStoreOp,
-        mlir::affine::AffineApplyOp
-      >(op)) {
+      if (llvm::isa<mlir::affine::AffineForOp>(op)) {
         hasAffine = true;
       }
     });
 
+    // 出力
     if (hasAffine) {
+      name.erase(0, PREFIX.size());
       std::cout << name << std::endl;
     }
   });
